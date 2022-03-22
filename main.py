@@ -2,12 +2,19 @@ from pathlib import Path
 
 import requests
 
-URL = 'https://upload.wikimedia.org/wikipedia/commons/3/3f/HST-SM4.jpeg'
-URL_2 = 'https://api.spacexdata.com/v3/launches/13'
+
+def fetch_spacex_last_launch():
+    url = 'https://api.spacexdata.com/v3/launches/13'
+
+    response = requests.get(url)
+    response.raise_for_status()
+    links = response.json()['links']['flickr_images']
+    for num, link in enumerate(links, start=1):
+        download_image(link, f'images/spacex{num}.jpg')
 
 
 def download_image(url, path):
-    response = requests.get(URL)
+    response = requests.get(url)
     response.raise_for_status()
     with open(path, 'wb') as f:
         f.write(response.content)
@@ -16,12 +23,7 @@ def download_image(url, path):
 def main():
     Path("./images").mkdir(exist_ok=True)
 
-    download_image(URL, 'images/hubble.jpeg')
-
-    response = requests.get(URL_2)
-    response.raise_for_status()
-    for link in response.json()['links']['flickr_images']:
-        print(link)
+    fetch_spacex_last_launch()
 
 
 if __name__ == '__main__':
