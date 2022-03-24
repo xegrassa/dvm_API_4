@@ -2,3 +2,5 @@
 venv
 imgs
 images
+.env
+zzz.py
