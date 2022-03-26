@@ -1,7 +1,7 @@
 import os.path
 from pathlib import Path
 from urllib.parse import urlparse, unquote
-
+from datetime import datetime
 import requests
 from dotenv import load_dotenv
 
@@ -44,14 +44,28 @@ def fetch_nasa():
         ext = get_ext_from_url(link)
         download_image(link, f'images/nasa{num}{ext}')
 
+def fetch_nasa_epic():
+    token = os.getenv('NASA_TOKEN')
+    url = f'https://api.nasa.gov/EPIC/api/natural/images?api_key={token}'
+    response = requests.get(url)
+    response.raise_for_status()
+    image_info = response.json()[0]
+
+    image_name = image_info['image']
+    image_date = datetime.fromisoformat(image_info['date'])
+    year = image_date.year
+    month = image_date.month
+    day = image_date.day
+    link = f'https://api.nasa.gov/EPIC/archive/natural/{year}/{month:0=2}/{day:0=2}/png/{image_name}.png?api_key={token}'
+    download_image(link, f'images/nasa_epic.png')
 
 def main():
     load_dotenv()
     Path("./images").mkdir(exist_ok=True)
 
-    fetch_spacex_last_launch()
-    fetch_nasa()
-
+    # fetch_spacex_last_launch()
+    # fetch_nasa()
+    fetch_nasa_epic()
 
 if __name__ == '__main__':
     main()
