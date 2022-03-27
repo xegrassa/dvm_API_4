@@ -1,9 +1,16 @@
+import argparse
 import os.path
+import time
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse, unquote
-from datetime import datetime
+
 import requests
+import telegram
 from dotenv import load_dotenv
+from telegram import InputMediaPhoto
+
+TELEGRAM_CHAT_ID = '@space_images_dvmn'
 
 
 def get_ext_from_url(url: str) -> str:
@@ -24,6 +31,7 @@ def download_image(url, path):
 
 
 def fetch_spacex_last_launch():
+    """Скачивает изображения запуска кораблей с SpaceX."""
     url = 'https://api.spacexdata.com/v3/launches/13'
 
     response = requests.get(url)
@@ -35,7 +43,7 @@ def fetch_spacex_last_launch():
 
 
 def fetch_nasa_apod():
-    """Скачивает ~30 изображений дня."""
+    """Скачивает ~30 изображений дня с NASA.APOD."""
     token = os.getenv('NASA_TOKEN')
     url = f'https://api.nasa.gov/planetary/apod?count=30&api_key={token}'
     response = requests.get(url)
@@ -47,6 +55,7 @@ def fetch_nasa_apod():
 
 
 def fetch_nasa_epic():
+    """Скачивает изображения космоса с NASA.EPIC."""
     token = os.getenv('NASA_TOKEN')
     url = f'https://api.nasa.gov/EPIC/api/natural/images?api_key={token}'
     response = requests.get(url)
@@ -60,13 +69,47 @@ def fetch_nasa_epic():
         download_image(link, f'images/nasa_epic{num}.png')
 
 
+def get_image_paths():
+    """Возвращает список путей до изображений."""
+    paths = []
+    for root, _, files in os.walk('images'):
+        for file in files:
+            paths.append(os.path.join(root, file))
+    return paths
+
+
+def send_images_to_telegram(image_paths: list[str]):
+    """Отправляет в телеграмм канал пост с изображениями."""
+    media = []
+    for path in image_paths:
+        media.append(InputMediaPhoto(media=open(path, 'rb')))
+
+    token = os.getenv('TELEGRAM_TOKEN')
+    bot = telegram.Bot(token=token)
+    bot.send_media_group(chat_id=TELEGRAM_CHAT_ID, media=media)
+
+
 def main():
     load_dotenv()
-    Path("./images").mkdir(exist_ok=True)
 
-    # fetch_spacex_last_launch()
-    # fetch_nasa_apod()
-    fetch_nasa_epic()
+    parser = argparse.ArgumentParser(
+        description='Скачивает и отправляет изображения связанные с космосом в телеграмм канал')
+    parser.add_argument('--delay', type=int, default=int(os.getenv('POST_IMAGE_DELAY')),
+                        help='Задержка отправки изображений в сек.(По умолчанию берется из окружения и равна 1 дню)')
+    args = parser.parse_args()
+
+    Path("./images").mkdir(exist_ok=True)
+    while True:
+        fetch_spacex_last_launch()
+        fetch_nasa_apod()
+        fetch_nasa_epic()
+
+        image_paths = get_image_paths()
+        send_images_to_telegram(image_paths)
+        for path in image_paths:
+            os.remove(path)
+
+        time.sleep(args.delay)
 
 
 if __name__ == '__main__':
