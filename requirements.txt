@@ -1,0 +1,3 @@
+python-dotenv>=0.20.*
+requests>=2.27.*
+python-telegram-bot >=13.*
