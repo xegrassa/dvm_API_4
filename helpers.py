@@ -1,6 +1,10 @@
 from urllib.parse import urlparse, unquote
 import os
 import requests
+from error import ImagePathsEmpty
+import logging
+
+logger = logging.getLogger('API4')
 
 
 def get_ext_from_url(url: str) -> str:
@@ -18,6 +22,7 @@ def download_image(url, path):
     response.raise_for_status()
     with open(path, 'wb') as f:
         f.write(response.content)
+        logger.debug(f'Скачано и сохранено изображение: {path}')
 
 
 def get_image_paths() -> list[str]:

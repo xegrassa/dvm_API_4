@@ -1,4 +1,5 @@
 import argparse
+import logging
 import os.path
 import time
 from pathlib import Path
@@ -11,7 +12,7 @@ from fetch_nasa import fetch_nasa_apod, fetch_nasa_epic
 from fetch_spacex import fetch_spacex_last_launch
 from helpers import get_image_paths
 
-TELEGRAM_CHAT_ID = '@space_images_dvmn'
+logger = logging.getLogger('API4')
 
 
 def send_images_to_telegram(image_paths: list[str]):
@@ -32,7 +33,11 @@ def main():
         description='Скачивает и отправляет изображения связанные с космосом в телеграмм канал')
     parser.add_argument('--delay', type=int, default=int(os.getenv('POST_IMAGE_DELAY', default=86400)),
                         help='Задержка отправки изображений в сек.(По умолчанию берется из окружения и равна 1 дню)')
+    parser.add_argument('--verbose', '-v', action='count', default=0,
+                        help='Выводит больше информации. Максимум 2 уровня')
     args = parser.parse_args()
+
+    _configure_loggers(args.verbose)
 
     Path("./images").mkdir(exist_ok=True)
     while True:
@@ -41,10 +46,13 @@ def main():
         fetch_nasa_epic()
 
         image_paths = get_image_paths()
-        send_images_to_telegram(image_paths)
+        logger.info(f'Изображения скачаны: {len(image_paths)}')
+
+        send_images_to_telegram(args.chat_id, image_paths)
         for path in image_paths:
             os.remove(path)
 
+        logger.info(f'Отправка изображений завершена. Следующая отправка через {args.delay}')
         time.sleep(args.delay)
 
 
