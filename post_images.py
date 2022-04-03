@@ -7,23 +7,55 @@ from pathlib import Path
 import telegram
 from dotenv import load_dotenv
 from telegram import InputMediaPhoto
+from telegram.error import RetryAfter, BadRequest
 
 from fetch_nasa import fetch_nasa_apod, fetch_nasa_epic
 from fetch_spacex import fetch_spacex_last_launch
-from helpers import get_image_paths
+from helpers import get_image_paths, get_part_media
 
 logger = logging.getLogger('API4')
 
 
-def send_images_to_telegram(image_paths: list[str]):
-    """Отправляет в телеграмм канал пост с изображениями."""
+def send_images_to_telegram(chat_id: str, image_paths: list[str]):
+    """Отправляет в телеграмм канал посты с изображениями."""
     media = []
     for path in image_paths:
-        media.append(InputMediaPhoto(media=open(path, 'rb')))
+        image = InputMediaPhoto(media=open(path, 'rb'))
+        if len(image.media.input_file_content) < 11 ** 6:
+            media.append(image)
 
     token = os.getenv('TELEGRAM_TOKEN')
     bot = telegram.Bot(token=token)
-    bot.send_media_group(chat_id=TELEGRAM_CHAT_ID, media=media)
+
+    for part in get_part_media(media, 8):
+        try:
+            bot.send_media_group(chat_id=f'@{chat_id}', timeout=40, media=part)
+        except RetryAfter as e:
+            timeout = e.retry_after + 1
+            logger.info(f'Ждем флуд таймаут {timeout}')
+            time.sleep(timeout)
+            bot.send_media_group(chat_id=f'@{chat_id}', timeout=40, media=part)
+        except BadRequest:
+            logger.debug(f'Был BadRequest для набора изображений. '
+                         f'Не будут отправлены {[image.media.filename for image in part]}.')
+        time.sleep(5)
+
+
+def _configure_loggers(verbose):
+    if verbose > 1:
+        logging_level = logging.DEBUG
+    elif verbose == 1:
+        logging_level = logging.INFO
+    else:
+        logging_level = logging.NOTSET
+
+    ch = logging.StreamHandler()
+    ch.setLevel(logging_level)
+    formatter = logging.Formatter(f'%(asctime)s:%(levelname)s:%(module)s:%(message)s')
+    ch.setFormatter(formatter)
+
+    logger.setLevel(logging_level)
+    logger.addHandler(ch)
 
 
 def main():
@@ -31,6 +63,7 @@ def main():
 
     parser = argparse.ArgumentParser(
         description='Скачивает и отправляет изображения связанные с космосом в телеграмм канал')
+    parser.add_argument('chat_id', help='ID канала в телеграм куда бот отправит фотографии. Например "dvmn_flood"')
     parser.add_argument('--delay', type=int, default=int(os.getenv('POST_IMAGE_DELAY', default=86400)),
                         help='Задержка отправки изображений в сек.(По умолчанию берется из окружения и равна 1 дню)')
     parser.add_argument('--verbose', '-v', action='count', default=0,
