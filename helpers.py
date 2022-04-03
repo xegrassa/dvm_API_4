@@ -31,4 +31,12 @@ def get_image_paths() -> list[str]:
     for root, _, files in os.walk('images'):
         for file in files:
             paths.append(os.path.join(root, file))
+    if not paths:
+        raise ImagePathsEmpty('Папка с изображениям пуста.')
     return paths
+
+
+def get_part_media(media: list, count: int = 10) -> list:
+    """Возвращает часть переданного списка."""
+    for i in range(0, len(media), count):
+        yield media[i:i + count]
