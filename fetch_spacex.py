@@ -1,6 +1,9 @@
+from pathlib import Path
+
 import requests
 
-from helpers import get_ext_from_url, download_image
+from core.constant import LOGGER_NAME
+from core.helpers import configure_logger, download_image, get_ext_from_url
 
 
 def fetch_spacex_last_launch():
@@ -16,4 +19,6 @@ def fetch_spacex_last_launch():
 
 
 if __name__ == '__main__':
+    configure_logger(LOGGER_NAME, 2)
+    Path("./images").mkdir(exist_ok=True)
     fetch_spacex_last_launch()
